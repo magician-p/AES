@@ -4,6 +4,6 @@
 
 #ifndef AES_H
 #define AES_H
-    void AES(char *plaintext,char *key);
-    void De_AES(char *ciphertext,char *key);
+    void AES(char *plaintext,char *key);//encrypt
+    void De_AES(char *ciphertext,char *key);//decrypt
 #endif //AES_H
