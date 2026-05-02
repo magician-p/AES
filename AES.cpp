@@ -241,9 +241,7 @@ void AES(char *plaintext, char *key) {
         PKCS7Padding(plaintext, 16);
     }
     p_length = strlen(plaintext);
-    cout<<"plaintext length is "<<p_length<<endl;
-    cout<<"plaintext: "<<plaintext<<endl;
-    cout<<"Key: "<<key<<endl;
+    key[16]='\0';
     if (!checkKeyLength(key)) {
         cout <<"Key length should be 16."<<endl;
         exit(0);
@@ -314,6 +312,20 @@ static void de_ColumnMix(char ciphertext[4][4]) {
     }
 }
 void De_AES(char *ciphertext,char *key) {
+    int c_length = strlen(ciphertext);
+    if (c_length==0) {
+        cout<<"Ciphertext length is 0."<<endl;
+        exit(0);
+    }
+    if (c_length % 16!=0) {
+        cout<<"The length of the ciphertext needs to be a multiple of 16."<<endl;
+        exit(0);
+    }
+    key[16] = '\0';
+    if (!checkKeyLength(key)) {
+        cout <<"Key length should be 16."<<endl;
+        exit(0);
+    }
     char c_Array[4][4];
     key_extend(key);
     for (int i=0; i<strlen(ciphertext); i+=16) {
