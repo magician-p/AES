@@ -3,7 +3,7 @@
 using namespace std;
 
 int main() {
-    char plaintext[] = "12345678901x3456";
+    char plaintext[] = "12345678901x34511asdasdfasdfwe";
     char key[] = "1234567890123456";
     AES(plaintext, key);
     De_AES(plaintext, key);

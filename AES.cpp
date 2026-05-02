@@ -135,13 +135,12 @@ static void rowLeftLoop( char plaintext[4][4]) {
     }
 }
 static  char GFMul2( char c) {//0010
-     char a7 = c & 0x80;
-     char result = c << 1;
+    char a7 = c & 0x80;
+    char result = c << 1;
     if (a7 == 0) {
         return result;
-    }else {
-        return result ^ 0x1b;
     }
+    return result ^ 0x1b;
 }
 static  char GFMul3( char c) {//0011
     return c^GFMul2(c);
@@ -218,16 +217,39 @@ static bool checkKeyLength(const char *key) {
         return true;
     return false;
 }
+static void PKCS7Padding(char *plaintext, int BlockSize) {
+    size_t padding_size = BlockSize - strlen(plaintext) % BlockSize;
+    char padding_char = static_cast<char>(padding_size);
+    int length = strlen(plaintext);
+    for (int i=0; i<padding_size; i++) {
+        *(plaintext + length +i) = padding_char;
+    }
+    plaintext[length +padding_size] = '\0';
+}
+static void PKCS7UnPadding(char *plaintext) {
+    size_t padding_size = plaintext[strlen(plaintext)-1];
+    int length = strlen(plaintext)-padding_size;
+    plaintext[length] = '\0';
+}
 void AES(char *plaintext,char *key) {
     int p_length = strlen(plaintext);
+    if (p_length==0) {
+        cout<<"Plaintext length is 0."<<endl;
+        exit(0);
+    }else if (p_length % 16!=0) {
+        PKCS7Padding(plaintext, 16);
+    }
+    p_length = strlen(plaintext);
+    cout<<"plaintext length is "<<p_length<<endl;
+    cout<<"plaintext: "<<plaintext<<endl;
     if (!checkKeyLength(key)) {
-        cout <<"密钥长度需要为16"<<endl;
+        cout <<"Key length should be 16."<<endl;
         exit(0);
     }
-     char p_Array[4][4];
-    convertStrToArray(p_Array,plaintext);
+    char p_Array[4][4];
     key_extend(key);
     for (int i=0; i<p_length; i+=16) {
+        convertStrToArray(p_Array,plaintext+i);
         roundKeyEncrypt(p_Array, 0);
         for (int round=1; round<10; round++) {
             byteReplace(p_Array);
@@ -306,6 +328,7 @@ void De_AES(char *ciphertext,char *key) {
         roundKeyEncrypt(c_Array, 0);
         convertArrayToStr(c_Array,ciphertext+i);
     }
+    PKCS7UnPadding(ciphertext);
 }
 
 
