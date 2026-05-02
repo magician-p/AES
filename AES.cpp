@@ -231,17 +231,19 @@ static void PKCS7UnPadding(char *plaintext) {
     int length = strlen(plaintext)-padding_size;
     plaintext[length] = '\0';
 }
-void AES(char *plaintext,char *key) {
+void AES(char *plaintext, char *key) {
     int p_length = strlen(plaintext);
     if (p_length==0) {
         cout<<"Plaintext length is 0."<<endl;
         exit(0);
-    }else if (p_length % 16!=0) {
+    }
+    if (p_length % 16!=0) {
         PKCS7Padding(plaintext, 16);
     }
     p_length = strlen(plaintext);
     cout<<"plaintext length is "<<p_length<<endl;
     cout<<"plaintext: "<<plaintext<<endl;
+    cout<<"Key: "<<key<<endl;
     if (!checkKeyLength(key)) {
         cout <<"Key length should be 16."<<endl;
         exit(0);
