@@ -50,25 +50,25 @@ static const char deColM[4][4] = {
     0x0d, 0x09, 0x0e, 0x0b,
     0x0b, 0x0d, 0x09, 0x0e};
 static const unsigned int Rcon[10]={0x01000000, 0x02000000, 0x04000000, 0x08000000, 0x10000000, 0x20000000, 0x40000000, 0x80000000, 0x1b000000, 0x36000000};
-static  int W[44];
-static  char S_change( char c) {
-     char high = c&0xf0>>4;
-     char low = c&0x0f;
+static int W[44];
+static char S_change(unsigned char c) {
+    char high = c>>4&0x0f;
+    char low = c&0x0f;
     return S[high][low];
 }
-static  int leafByteLoop( int w, int num) {
-     int w_1 = w<<8*num;
-     int w_2 = w>>32-(8*num);
+static  int leafByteLoop(unsigned int w, int num) {
+    int w_1 = w<<8*num;
+    int w_2 = w>>32-(8*num);
     return w_1 | w_2;
 }
-static void splitIntToArray( int w,  char *Array) {
+static void splitIntToArray( int w,  char Array[4]) {
     Array[0] = w>>24&0xff;
     Array[1] = w>>16&0xff;
     Array[2] = w>>8&0xff;
     Array[3] = w&0xff;
 }
 static  int getIntFromChar( char c) {
-     int result = static_cast<int>(c);
+     int result = c;
     return result & 0x000000ff;
 }
 static  int getWordFromChar( char *c) {
@@ -78,17 +78,17 @@ static  int getWordFromChar( char *c) {
      int k_4 = getIntFromChar(c[3]);
     return k_1 | k_2 | k_3 | k_4;
 }
-static  int T( int w, int round) {
-     int w_1 = leafByteLoop(w, 1);
-     char Array[4];
+static int T(int w, int round) {
+    int w_1 = leafByteLoop(w, 1);
+    char Array[4];
     splitIntToArray(w_1, Array);
     for ( char & i : Array) {
         i = S_change(i);
     }
-     int w_2 = getWordFromChar(Array);
+    int w_2 = getWordFromChar(Array);
     return w_2^Rcon[round];
 }
-static void key_extend( char *key) {
+static void key_extend(char *key) {
     for (int i=0;i<4;i++) {
         W[i] = getWordFromChar(key+i*4);
     }
@@ -101,12 +101,12 @@ static void key_extend( char *key) {
         }
     }
 }
-static void roundKeyEncrypt( char plaintext[4][4], int round) {
-     char w_Array[4];
+static void roundKeyEncrypt(char plaintext[4][4], int round) {
+    char w_Array[4];
     for (int i=0; i<4; i++) {
         splitIntToArray(W[4*round+i], w_Array);
         for (int j=0; j<4; j++) {
-            plaintext[i][j] = plaintext[i][j]^w_Array[j];
+            plaintext[j][i] ^= w_Array[j];
         }
     }
 }
@@ -121,20 +121,20 @@ static void rowLeftLoop( char plaintext[4][4]) {
     char two_Array[4], three_Array[4], four_Array[4];
     int p_2 = getWordFromChar(plaintext[1]);
     p_2 = leafByteLoop(p_2, 1);
-    splitIntToArray(getIntFromChar(p_2), two_Array);
+    splitIntToArray(p_2, two_Array);
     int p_3 = getWordFromChar(plaintext[2]);
     p_3 = leafByteLoop(p_3, 2);
-    splitIntToArray(getIntFromChar(p_3), three_Array);
+    splitIntToArray(p_3, three_Array);
     int p_4 = getWordFromChar(plaintext[3]);
     p_4 = leafByteLoop(p_4, 3);
-    splitIntToArray(getIntFromChar(p_4), four_Array);
+    splitIntToArray(p_4, four_Array);
     for (int i=0;i<4;i++) {
         plaintext[1][i] = two_Array[i];
         plaintext[2][i] = three_Array[i];
         plaintext[3][i] = four_Array[i];
     }
 }
-static  char GFMul2( char c) {
+static  char GFMul2( char c) {//0010
      char a7 = c & 0x80;
      char result = c << 1;
     if (a7 == 0) {
@@ -143,42 +143,51 @@ static  char GFMul2( char c) {
         return result ^ 0x1b;
     }
 }
-static  char GFMul3( char c) {
+static  char GFMul3( char c) {//0011
     return c^GFMul2(c);
 }
-static  char GFMul9( char c) {
-    return GFMul3(c)^GFMul3(c)^GFMul3(c);
+static char GFMul4(int s) {//0100
+    return GFMul2(GFMul2(s));
 }
-static  char GFMulB( char c) {
-    return GFMul9(c)^GFMul2(c);
+static char GFMul8(int s) {//1000
+    return GFMul2(GFMul4(s));
 }
-static  char GFMulD( char c) {
-    return GFMulB(c)^GFMul2(c);
+static char GFMul9(int s) {//1001
+    return GFMul8(s)^s;
 }
-static  char GFMulE( char c) {
-    return GFMulD(c)^c;
+static char GFMulB(int s) {//1011
+    return GFMul9(s) ^ GFMul2(s);
+}
+static char GFMul12(int s) {//1100
+    return GFMul8(s) ^ GFMul4(s);
+}
+static char GFMulD(int s) {//1101
+    return GFMul12(s) ^ s;
+}
+static char GFMulE(int s) {//1110
+    return GFMul12(s) ^ GFMul2(s);
 }
 static char GFMul( char mix,  char c) {
     switch (mix) {
         case 1:
-            return c; break;
+            return c;
         case 2:
-            return GFMul2(c); break;
+            return GFMul2(c);
         case 3:
-            return GFMul3(c); break;
-        case 9:
-            return GFMul9(c); break;
+            return GFMul3(c);
+        case 0x09:
+            return GFMul9(c);
         case 0x0b:
-            return GFMulB(c); break;
+            return GFMulB(c);
         case 0x0d:
-            return GFMulD(c); break;
+            return GFMulD(c);
         case 0x0e:
-            return GFMulE(c); break;
+            return GFMulE(c);
         default: return 0;
     }
 }
 static void mixColumn( char plaintext[4][4]) {
-     char temp[4][4];
+    char temp[4][4];
     for (int i=0; i<4; i++) {
         for(int j=0; j<4; j++) {
             temp[i][j] = plaintext[i][j];
@@ -191,14 +200,11 @@ static void mixColumn( char plaintext[4][4]) {
     }
 }
 static void convertArrayToStr(const char plaintext[4][4],  char *str) {
-    //char *temp = "";
     for (int i=0; i<4; i++) {
         for (int j=0; j<4; j++) {
             *(str+4*i+j)=plaintext[j][i];
         }
     }
-    //str=temp;
-    //cout<<str<<endl;
 }
 static void convertStrToArray( char plaintext[4][4], const char *str) {
     for (int i=0; i<4; i++) {
@@ -207,20 +213,14 @@ static void convertStrToArray( char plaintext[4][4], const char *str) {
         }
     }
 }
-static bool checkKeylength(const char *key) {
+static bool checkKeyLength(const char *key) {
     if (strlen(key)==16)
         return true;
     return false;
 }
 void AES(char *plaintext,char *key) {
     int p_length = strlen(plaintext);
-    if (p_length%16!=0) {
-        for (int i=0; i<=16-p_length%16 ; i++) {
-            plaintext+=' ';
-        }
-    }
-    p_length = strlen((plaintext));
-    if (!checkKeylength(key)) {
+    if (!checkKeyLength(key)) {
         cout <<"密钥长度需要为16"<<endl;
         exit(0);
     }
@@ -241,9 +241,71 @@ void AES(char *plaintext,char *key) {
         convertArrayToStr(p_Array, plaintext+i);
     }
 }
-
-void De_AES( char *ciphertext,char *key) {
-;
+static char getCharFromSt(char c) {
+    char heigh = c>>4 & 0x0f;
+    char low = c & 0x0f;
+    return S_t[heigh][low];
+}
+static void deByteReplace(char ciphertext[4][4]) {
+    for (int i=0; i<4; i++) {
+        for (int j=0; j<4; j++) {
+            ciphertext[i][j]=getCharFromSt(ciphertext[i][j]);
+        }
+    }
+}
+static int rightLoop(unsigned int w, int num) {
+    int w_1 = w>>(num*8);
+    int w_2 = w<<(32-num*8);
+    return w_1|w_2;
+}
+static void rowRightLoop(char ciphertext[4][4]) {
+    char two_Array[4], three_Array[4], four_Array[4];
+    int p_2 = getWordFromChar(ciphertext[1]);
+    p_2 = rightLoop(p_2, 1);
+    splitIntToArray(p_2, two_Array);
+    int p_3 = getWordFromChar(ciphertext[2]);
+    p_3 = rightLoop(p_3, 2);
+    splitIntToArray(p_3, three_Array);
+    int p_4 = getWordFromChar(ciphertext[3]);
+    p_4 = rightLoop(p_4, 3);
+    splitIntToArray(p_4, four_Array);
+    for (int i=0;i<4;i++) {
+        ciphertext[1][i] = two_Array[i];
+        ciphertext[2][i] = three_Array[i];
+        ciphertext[3][i] = four_Array[i];
+    }
+}
+static void de_ColumnMix(char ciphertext[4][4]) {
+    char temp[4][4];
+    for (int i=0; i<4; i++) {
+        for (int j=0; j<4; j++) {
+            temp[i][j] = ciphertext[i][j];
+        }
+    }
+    for (int i=0; i<4; i++) {
+        for (int j=0; j<4; j++) {
+            ciphertext[i][j] = GFMul(deColM[i][0],temp[0][j]) ^ GFMul(deColM[i][1],temp[1][j])
+                ^ GFMul(deColM[i][2],temp[2][j]) ^ GFMul(deColM[i][3],temp[3][j]);
+        }
+    }
+}
+void De_AES(char *ciphertext,char *key) {
+    char c_Array[4][4];
+    key_extend(key);
+    for (int i=0; i<strlen(ciphertext); i+=16) {
+        convertStrToArray(c_Array,ciphertext+i);
+        roundKeyEncrypt(c_Array, 10);
+        for (int round=9; round>=1; round--) {
+            rowRightLoop(c_Array);
+            deByteReplace(c_Array);
+            roundKeyEncrypt(c_Array, round);
+            de_ColumnMix(c_Array);
+        }
+        rowRightLoop(c_Array);
+        deByteReplace(c_Array);
+        roundKeyEncrypt(c_Array, 0);
+        convertArrayToStr(c_Array,ciphertext+i);
+    }
 }
 
 
